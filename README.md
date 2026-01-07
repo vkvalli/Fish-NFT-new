@@ -1,15 +1,6 @@
 # ⚠️ WARNING
 
-Due to **Pinata free account limitations**, IPFS gateway requests may fail or be rate-limited when uploading images or metadata.  Minting might be slow or temporarily unavailable if too many requests are made.
-
-# CPSC 559 FINAL Project
-
-Team members
-- Nick Tran - CWID: 888110590 - Email: [nghitran@csu.fullerton.edu]
-- Victor Vu - CWID: 887249621 - Email: [vuvictor@csu.fullerton.edu]
-- Caroline Ha - CWID: 885136382 - Email: [carolineh@csu.fullerton.edu]
-- Aaron Tang - CWID: 889433579 - Email: [aarontang@csu.fullerton.edu]
-- Kumuda Valli V - CWID: 848379590 - Email: [vkv2909@csu.fullerton.edu]
+Due to **Pinata free account limitations**, IPFS gateway requests may fail or be rate-limited when uploading images or metadata.  Minting might be slow or temporarily unavailable if too many requests are made. For ML classification model, please visit original creator's repo.
 
 ## Overview
 This is a **Truffle-based blockchain project** with smart contracts and a front-end interface.  
@@ -95,3 +86,9 @@ Make sure you have:
 
 ## Credits
 - ** AI model and Canvas UI: Alden Hallak- https://github.com/aldenhallak/fishes
+- Team members
+- Nick Tran - Email: [nghitran@csu.fullerton.edu]
+- Victor Vu - Email: [vuvictor@csu.fullerton.edu]
+- Caroline Ha - Email: [carolineh@csu.fullerton.edu]
+- Aaron Tang - Email: [aarontang@csu.fullerton.edu]
+- Kumuda Valli V - Email: [vkv2909@csu.fullerton.edu]
