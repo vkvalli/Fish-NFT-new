@@ -1,0 +1,182 @@
+/* ---------------- Body ---------------- */
+body {
+  font-family: sans-serif;
+  text-align: center;
+  background: #ffffff;
+  margin: 0;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between; 
+  align-items: center;
+  padding: 15px 30px;
+  background-color: #f5f5f5;
+  border-bottom: 1px solid #ddd; 
+  font-family: 'Arial', sans-serif;
+}
+
+/* title style */
+.page-header h1 {
+  margin: 0;
+  font-size: 1.6em;
+  font-weight: 600;
+  color: #333;
+}
+
+/* wallet status style */
+.page-header #walletStatus {
+  font-size: 0.95em;
+  color: #555;
+  padding: 5px 10px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  background-color: #fff;
+  transition: all 0.2s ease;
+}
+
+/* hover */
+.page-header #walletStatus:hover {
+  background-color: #eaeaea;
+  cursor: pointer;
+  border-color: #999;
+}
+
+/* 2 columns */
+.market-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  background: linear-gradient(
+      135deg,
+      rgba(70, 160, 255, 0.15),
+      rgba(0, 255, 200, 0.1)
+    );
+  backdrop-filter: blur(8px);
+  border-radius: 16px;
+  padding: 12px 16px;
+  box-shadow: 0 4px 12px rgba(0, 150, 255, 0.2);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto;
+  margin-bottom: 16px;
+}
+
+.market-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 20px rgba(0, 180, 255, 0.3);
+}
+
+.market-left {
+  display: flex;
+  gap: 12px;       
+  align-items: flex-start;
+}
+
+.fish-image {
+  width: 30%;
+  height: auto;
+  object-fit: cover;
+  border-radius: 12px;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(0, 150, 255, 0.25);
+}
+
+.market-info-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Fish name */
+.market-info-left p:first-child {
+  font-size: 18px;
+  font-weight: bold;
+  color: #04364d;
+  margin: 0;
+}
+
+.market-info-left .small-info {
+  font-size: 12px;
+  color: #555;
+  margin: 2px 0;
+  text-align: left;
+}
+
+.market-info-right {
+  display: flex;
+  flex-direction: row;       
+  gap: 16px;                 
+  align-items: flex-start;   
+}
+
+.price-column {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;  
+}
+
+.button-column {
+  display: flex;
+  flex-direction: column;   
+  gap: 6px;
+  align-items: flex-end;    
+  margin-top: auto;         
+}
+
+
+.market-info-right .price {
+  font-size: 24px;
+  font-weight: bold;
+  color: #04364d;
+  margin: 0;
+}
+
+.market-card button {
+  padding: 6px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  border: none;
+  color: white;
+  font-weight: bold;
+  transition: background 0.2s;
+  min-width: 120px;
+}
+
+.buy-button { background: #4caf50; }
+.buy-button:hover { background: #0f5112; }
+
+.cancel-button { background: #f44336; }
+.cancel-button:hover { background: #830f07; }
+
+.update-price-btn { background: #ff9800; }
+.update-price-btn:hover { background: #754803; }
+
+@media (max-width: 600px) {
+  .market-card {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .market-left {
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .market-info-right {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .price-column {
+    justify-content: center;
+  }
+
+  .button-column {
+    flex-direction: row;      
+    gap: 6px;
+  }
+}
