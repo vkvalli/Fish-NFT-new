@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FinVerse Marketplace</title>
+
+    <!-- Shared Styles -->
+    <link rel="stylesheet" href="src/css/nav.css">
+    <link rel="stylesheet" href="src/css/market.css">
+    <link rel="stylesheet" href="src/css/style.css">
+
+    <!-- ethers.js -->
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+
+    <script>
+        if (typeof ethers === "undefined") {
+            console.error("❌ ethers failed to load");
+        }
+    </script>
+
+    <!-- Contracts & Wallet -->
+    <script src="src/js/nav.js" defer></script>
+
+    <!-- Marketplace Logic -->
+    <script src="src/js/market.js" defer></script>
+
+</head>
+<body>
+
+    <!-- NAVBAR -->
+    <div id="navbar-container"></div>
+
+    <div class="page-header">
+        <h1>FinVerse Marketplace</h1>
+        <div id="walletStatus">Connecting wallet...</div>
+    </div>
+
+    <div class="main-content">
+        <p id="market-status" class="market-status"></p>
+        <p id="market-empty" class="market-empty">No NFTs listed yet.</p>
+
+        <p style="text-align:center;">Browse NFTs available for purchase</p>
+
+        <!-- Market Listings -->
+        <div id="market-listings" class="market-gallery"></div>
+
+    </div>
+
+</body>
+</html>

@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FishNFT</title>
+<link rel="stylesheet" href="src/css/style.css">
+<link rel="stylesheet" href="src/css/nav.css">
+<link rel="stylesheet" href="src/css/gallery.css">
+</head>
+<body>
+
+<div id="navbar-container"></div>
+
+<main role="main">
+  <div id="draw-ui">
+    <section id="drawing-section">
+      <p>Draw your own unique fish and mint it as your NFT afterward!</p>
+      <h2>(facing right please)</h2>
+
+      <canvas id="draw-canvas" width="400" height="240" aria-label="Fish drawing canvas for creating digital fish art"></canvas>
+
+      <br><br>
+
+      <!-- <button id="mint-btn" title="Mint your fish as NFT" disabled>Mint NFT</button> -->
+      <div class="button-row">
+        <button id="mint-btn" title="Mint your fish as NFT" disabled>Mint NFT</button>
+      </div>
+      <div id="walletStatus"></div>
+    </section>
+  </div>
+</main>
+
+<!-- JS -->
+<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+<script src="src/js/app.js"></script>
+<script src="src/js/nav.js"></script>
+
+<script>
+const DEFAULT_PINATA_API_KEY = '9bbabeea67845c7adeba';
+const DEFAULT_PINATA_SECRET_KEY = 'b4f388aba906ef80a5376ef3ca366d1044b43fb18a37621bdb3bb893b6d6c31c';
+
+async function mintNFT() {
+    if (!window.contract || !window.userAddress) {
+        alert("Please connect your wallet first!");
+        return;
+    }
+
+    const apiKey = sessionStorage.getItem('pinata_api_key') || document.getElementById('pinataApiKey')?.value.trim() || DEFAULT_PINATA_API_KEY;
+    const secretKey = sessionStorage.getItem('pinata_secret_key') || document.getElementById('pinataSecretKey')?.value.trim() || DEFAULT_PINATA_SECRET_KEY;
+
+    const canvas = document.getElementById('draw-canvas');
+    const dataURL = canvas.toDataURL();
+
+    function dataURLtoFile(dataurl, filename) {
+        let arr = dataurl.split(','), mime = arr[0].match(/:(.*?);/)[1],
+            bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
+        while(n--) u8arr[n] = bstr.charCodeAt(n);
+        return new File([u8arr], filename, { type: mime });
+    }
+
+    const file = dataURLtoFile(dataURL, 'myFish.png');
+
+    try {
+        // upload pic to Pinata
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const pinataRes = await fetch('https://api.pinata.cloud/pinning/pinFileToIPFS', {
+            method: 'POST',
+            headers: {
+                'pinata_api_key': apiKey,
+                'pinata_secret_api_key': secretKey
+            },
+            body: formData
+        });
+
+        const pinataData = await pinataRes.json();
+        const ipfsURL = `https://gateway.pinata.cloud/ipfs/${pinataData.IpfsHash}`;
+
+        // Retrieve fishProb from localStorage
+        const fishProb = localStorage.getItem('currentFishProbability');
+        const fishInitScore = fishProb ? Math.round(parseFloat(fishProb) * 100) : 0;
+
+        // create and upload metadata 
+        const metadata = {
+            name: "My Fish",
+            description: "A fish I drew and minted in FinVerse app",
+            image: ipfsURL,
+            createdAt: new Date().toISOString(),
+            fishInitScore: fishInitScore
+        };
+
+        const metadataRes = await fetch('https://api.pinata.cloud/pinning/pinJSONToIPFS', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'pinata_api_key': apiKey,
+                'pinata_secret_api_key': secretKey
+            },
+            body: JSON.stringify(metadata)
+        });
+
+        const metadataJson = await metadataRes.json();
+        const tokenURI = `https://gateway.pinata.cloud/ipfs/${metadataJson.IpfsHash}`;
+
+        // call contract when mint
+        const tx = await window.contract.mint(tokenURI);
+        alert("Minting transaction sent! Tx: " + tx.hash);
+
+        await tx.wait();
+        alert("NFT minted successfully!");
+
+        // determine tokenId = tokenCounter() - 1
+        const currentCounter = await window.contract.tokenCounter();
+        const tokenId = currentCounter.toNumber() - 1;
+
+        // Store pending metadata locally (single-tx apply later in My Gallery)
+        try {
+            const pending = {
+                name: "My Fish",
+                trait: "",
+                creator: window.userAddress,
+                createdAt: Math.floor(Date.now()/1000)
+            };
+            localStorage.setItem(`pending_meta_${tokenId}`, JSON.stringify(pending));
+        } catch(e){}
+
+        localStorage.setItem("lastFishMetadata", tokenURI);
+        window.location.href = "profile.html";
+
+    } catch (err) {
+        console.error(err);
+        alert("Mint failed: " + err.message);
+    }
+}
+
+// bind mint button
+document.getElementById('mint-btn').addEventListener('click', mintNFT);
+
+// ---------------- Mint Button Init Status ----------------
+window.isCurrentDrawingFish = undefined; 
+document.addEventListener("DOMContentLoaded", () => {
+    updateMintButtonByFishFlag();
+    
+    // Pinata keys button listener
+    document.getElementById('savePinataBtn')?.addEventListener('click', () => {
+        const k = document.getElementById('pinataApiKey').value.trim();
+        const s = document.getElementById('pinataSecretKey').value.trim();
+        if (!k || !s) { alert('Enter both keys first.'); return; }
+        sessionStorage.setItem('pinata_api_key', k);
+        sessionStorage.setItem('pinata_secret_key', s);
+        alert('Pinata keys saved for this session.');
+    });
+});
+</script>
+
+<div id="pinata-section">
+  <h3>Pinata API Settings</h3>
+  <p>Used for uploading your fish image + metadata</p>
+  <input id="pinataApiKey" type="text" placeholder="Pinata API Key">
+  <input id="pinataSecretKey" type="password" placeholder="Pinata Secret Key">
+  <br><br>
+  <button id="savePinataBtn" type="button">Save Pinata Keys</button>
+</div>
+
+</body>
+</html>

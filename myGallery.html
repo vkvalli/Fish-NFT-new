@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>My Fish Collection</title>
+  <link rel="stylesheet" href="src/css/nav.css">
+  <link rel="stylesheet" href="src/css/gallery.css">
+  <link rel="stylesheet" href="src/css/style.css">
+</head>
+
+<body>
+  <!-- Placeholder for dynamic navbar -->
+  <div id="navbar-container"></div>
+
+  <div class="page-header">
+    <h1>My Fish Collection</h1>
+    <div id="walletStatus">Connecting wallet...</div>
+  </div>
+
+  <div class="gallery" id="fishList">
+    <p>Loading your fish...</p>
+    <div id="loadingBarContainer" style="width:100%; background:#eee; border-radius:5px; margin-top:10px;">
+        <div id="loadingBar" style="width:0%; height:10px; background:#4caf50; border-radius:5px;"></div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+  <script src="src/js/gallery.js"></script> 
+  <script src="src/js/nav.js"></script>
+  <script>
+    async function loadMyFish() {
+      const fishList = document.getElementById("fishList");
+        fishList.innerHTML = `
+            <p>Loading your fish...</p>
+            <div id="loadingBarContainer" style="width:100%; background:#eee; border-radius:5px; margin-top:10px;">
+            <div id="loadingBar" style="width:0%; height:10px; background:#4caf50; border-radius:5px;"></div>
+            </div>
+        `;
+
+      if (!window.contract || !window.userAddress) {
+        fishList.innerHTML = "<p>Wallet not connected yet.</p>";
+        return;
+      }
+
+      // Prepare metadata contract (optional)
+      let metadataAddr = null;
+      let metadata = null;
+      let metadataRead = null;
+      try {
+        const addrs = await fetch("contracts-address.json").then(r=>r.json());
+        metadataAddr = addrs.FishMetadata;
+        if (metadataAddr) {
+          const metadataABI = [
+            "function getMetadata(uint256 tokenId) view returns (string,string,uint256,uint256,uint256,uint256,address)",
+            "function initMetadata(uint256 tokenId, string name_, string trait_)",
+            "function setName(uint256 tokenId, string name_)",
+            "function setTrait(uint256 tokenId, string trait)"
+          ];
+          const provider = new ethers.providers.Web3Provider(window.ethereum);
+          const signer = provider.getSigner();
+          metadata = new ethers.Contract(metadataAddr, metadataABI, signer);
+          metadataRead = new ethers.Contract(metadataAddr, metadataABI, provider);
+        }
+      } catch (e) {
+        // no metadata available
+      }
+
+      try {
+        const total = await window.contract.tokenCounter();
+        const totalNum = total.toNumber();
+
+        let html = "";
+        for (let i = 0; i < totalNum; i++) {
+          try {
+            const owner = await window.contract.ownerOf(i);
+            if (owner.toLowerCase() !== window.userAddress.toLowerCase()) continue;
+
+            const tokenURI = await window.contract.tokenURI(i);
+            const meta = await fetch(tokenURI).then(res => {
+              if (!res.ok) throw new Error("Bad tokenURI response");
+              return res.json();
+            });
+
+            let fishPendingBoostTips = "0.00";
+            let creatorBoostCount = 0;
+            if (window.creatorBoostContract) {
+              try {
+                const creatorBoostData = await window.creatorBoostContract.fishes(i);
+                creatorBoostCount = creatorBoostData[0].toNumber();
+                fishPendingBoostTips = ethers.utils.formatEther(creatorBoostData.pendingBoostShare.toString());
+              } catch (err) {
+                console.error(`Failed to fetch Boost Earnings for token #${i}:`, err);
+              }
+            }
+            // Read on-chain metadata
+            let nameOnChain = "";
+            let traitOnChain = "";
+            let createdAtOnChain = 0;
+            if (metadataRead) {
+              try {
+                const m = await metadataRead.getMetadata(i);
+                nameOnChain = m[0] || "";
+                traitOnChain = m[1] || "";
+                createdAtOnChain = Number(m[5]?.toString?.() || m[5] || 0);
+              } catch (e) {}
+            }
+
+            // Prefill from pending local metadata if available
+            try {
+              const pendingStr = localStorage.getItem(`pending_meta_${i}`);
+              if (pendingStr) {
+                const pending = JSON.parse(pendingStr);
+                if (!nameOnChain && pending?.name) nameOnChain = pending.name;
+                if (!traitOnChain && pending?.trait) traitOnChain = pending.trait;
+              }
+            } catch (e) {}
+
+            let forSale = false;
+            try {
+              if (window.marketContract) {
+                const listing = await window.marketContract.getListing(window.contract.address, i);
+                forSale = listing?.active || false;
+              }
+            } catch (e) {
+              forSale = false;
+            }
+
+            let lastSaleHtml = "";
+            if (window.marketContract) {
+              try {
+                const [lastPrice, lastTime] = await window.marketContract.getLastSale(window.contract.address, i);
+                if (lastTime.toNumber() > 0) {
+                  lastSaleHtml = `<p class="market-history">
+                                    Last Sold: ${ethers.utils.formatEther(lastPrice)} ETH 
+                                    at ${new Date(lastTime.toNumber() * 1000).toLocaleString()}
+                                  </p>`;
+                }
+              } catch(e) {
+                lastSaleHtml = "";
+              }
+            }
+            html += `
+              <div class="card">
+                <img src="${meta.image}" alt="${meta.name}">
+                <p id="display-name-${i}"><b>${(nameOnChain || meta.name || ("Fish #" + i))}</b></p>
+                <p class="created-time">Created: ${
+                  createdAtOnChain
+                    ? new Date(createdAtOnChain * 1000).toLocaleString()
+                    : (meta.createdAt ? new Date(meta.createdAt).toLocaleString() : "Unknown")}
+                </p>
+                <p class="created-time">Token ID: ${i}</p>
+                <p class="created-time">${meta.description || "No description"}</p>
+                <p class="for-sale-label ${forSale ? 'for-sale' : 'not-for-sale'}">
+                  ${forSale ? 'For Sale' : 'Not for Sale'}
+                </p>
+                <div class="button-row">
+                    <button class="gift-button" data-id="${i}" ${forSale ? 'disabled title="Cannot gift because this fish is for sale"' : ''}>Gift</button>
+                    <button class="burn-button" data-id="${i}" ${forSale ? 'disabled title="Cannot burn because this fish is for sale"' : ''}>Burn</button>
+                </div>
+                <div class="market-section">
+                  <p class="market-history-title">MetaData Editor</p>
+                  ${metadata ? `
+                  <p id="display-trait-${i}" class="trait-text ${!traitOnChain ? 'placeholder' : ''}">
+                    Trait: ${traitOnChain || "N/A"}
+                  </p>
+                ` : ``}
+                  ${metadata ? `
+                  <button class="edit-meta-button" data-id="${i}" id="edit-meta-btn-${i}"
+                      ${forSale ? 'disabled title="Disable because this fish is For Sale"' : ''}>
+                      Edit Name/Trait
+                  </button>
+                  <div id="edit-panel-${i}" style="display:none; margin:8px 0; padding:8px; border:1px solid #ddd; border-radius:6px;">
+                    <div style="margin:6px 0;">
+                      <label style="display:block;font-weight:bold;">Name</label>
+                      <input type="text" id="name-input-${i}" value="${nameOnChain || ''}" placeholder="On-chain name" style="width:100%;box-sizing:border-box;">
+                    </div>
+                    <div style="margin:6px 0;">
+                      <label style="display:block;font-weight:bold;">Trait</label>
+                      <input type="text" id="trait-input-${i}" value="${traitOnChain || ''}" placeholder="e.g., koi, golden, shark" style="width:100%;box-sizing:border-box;">
+                    </div>
+                    <div style="display:flex; gap:8px; align-items:center;">
+                      <button class="save-meta-button" data-id="${i}" id="save-meta-${i}">Save</button>
+                      <button class="cancel-meta-button" data-id="${i}" id="cancel-meta-${i}">Cancel</button>
+                      <span id="meta-status-${i}" style="font-size:12px;color:#666;"></span>
+                    </div>
+                  </div>
+                </div>  
+                <div class="market-section">
+                  <p class="market-history-title">Creator Boost Share</p>
+                  <p class="market-history-text">Boost Count: <span id="fish-reward-count-${i}">${creatorBoostCount}</span> ｜ Pending Boost Earnings: <span id="pending-boostShare-${i}">${fishPendingBoostTips}</span> ETH</p>
+                  <div class="button-row">
+                    <button class="claim-boostShare-btn" id="claim-boostShare-btn-${i}">Claim Earnings</button>
+                    <button class="claim-bonus-btn" id="claim-bonus-btn-${i}">Claim Bonus</button>
+                  </div>  
+                </div>
+                <div class="market-section">
+                  <p class="market-history-title">Market History</p>
+                  <div class="market-history-text">
+                    ${lastSaleHtml || 'No sales history'}
+                  </div>
+                  <button class="list-btn" data-id="${i}"
+                    ${forSale ? 'disabled title="Already listed"' : ''}>
+                    List for Sale
+                  </button>
+                </div>
+                ` : ``}
+              </div>
+            `;
+          } catch (err) {
+            console.warn(`Skipping tokenId ${i} due to error:`, err);
+            continue;
+          }
+        }
+
+        fishList.innerHTML = html || `
+          <p>
+            You don't own any fish yet!<br>
+            You may draw your own fishes or buy them in the gallery.
+          </p>
+        `;
+
+        requestAnimationFrame(() => {
+          document.querySelectorAll(".claim-boostShare-btn, .claim-bonus-btn").forEach(btn => {
+            const tokenId = btn.id.split("-")[3];
+            updatePendingBoostBonus(tokenId);
+          });
+        });
+
+        // Attach gift button listeners
+        document.querySelectorAll(".gift-button").forEach(btn => {
+          btn.addEventListener("click", async () => {
+            const tokenId = btn.dataset.id;
+            const recipient = prompt("Enter the recipient address:");
+            if (!recipient) return;
+
+            try {
+              const tx = await window.contract.gift(tokenId, recipient);
+              await tx.wait();
+              alert(`Token ${tokenId} gifted to ${recipient}!`);
+              loadMyFish();
+            } catch (err) {
+              console.error(err);
+              alert("Gift failed: " + err.message);
+            }
+          });
+        });
+
+        document.querySelectorAll(".burn-button").forEach(btn => {
+          btn.addEventListener("click", async () => {
+            const tokenId = btn.dataset.id;
+            if (!confirm(`Are you sure you want to burn Token #${tokenId}? This action cannot be undone.`)) return;
+
+            try {
+              const tx = await window.contract.burnNFT(tokenId);
+              await tx.wait();
+              alert(`Token ${tokenId} has been burned!`);
+              loadMyFish(); 
+            } catch (err) {
+              console.error(err);
+              alert("Burn failed: " + err.message);
+            }
+          });
+        });
+
+        if (metadata) {
+          // Toggle edit panels
+          document.querySelectorAll(".edit-meta-button").forEach(btn => {
+            btn.addEventListener("click", () => {
+              const tokenId = btn.dataset.id;
+              const panel = document.getElementById(`edit-panel-${tokenId}`);
+              if (panel) {
+                panel.style.display = panel.style.display === "none" ? "block" : "none";
+              }
+            });
+          });
+
+          // Save edits in ONE tx via initMetadata (sets name/trait/creator; sets createdAt on first save)
+          document.querySelectorAll(".save-meta-button").forEach(btn => {
+            btn.addEventListener("click", async () => {
+              const tokenId = btn.dataset.id;
+              const nameInput = document.getElementById(`name-input-${tokenId}`);
+              const traitInput = document.getElementById(`trait-input-${tokenId}`);
+              const statusEl = document.getElementById(`meta-status-${tokenId}`);
+              const saveBtn = document.getElementById(`save-meta-${tokenId}`);
+              const cancelBtn = document.getElementById(`cancel-meta-${tokenId}`);
+              const displayName = document.getElementById(`display-name-${tokenId}`);
+              const displayTrait = document.getElementById(`display-trait-${tokenId}`);
+
+              const nameVal = (nameInput?.value ?? "").trim();
+              const traitVal = (traitInput?.value ?? "").trim();
+
+              try {
+                if (statusEl) statusEl.textContent = "Saving...";
+                if (saveBtn) saveBtn.disabled = true;
+                if (cancelBtn) cancelBtn.disabled = true;
+                if (nameInput) nameInput.disabled = true;
+                if (traitInput) traitInput.disabled = true;
+
+                const tx = await metadata.initMetadata(tokenId, nameVal, traitVal);
+                await tx.wait();
+
+                // Update UI
+                if (displayName) {
+                  displayName.innerHTML = `<b>${nameVal || ("Fish #" + tokenId)}</b>`;
+                }
+                if (displayTrait) {
+                  displayTrait.textContent = traitVal ? `Trait: ${traitVal}` : "";
+                }
+                const panel = document.getElementById(`edit-panel-${tokenId}`);
+                if (panel) panel.style.display = "none";
+                if (statusEl) statusEl.textContent = "Saved.";
+                try { localStorage.removeItem(`pending_meta_${tokenId}`); } catch(e){}
+              } catch (e) {
+                console.error(e);
+                alert("Save failed: " + (e?.message || e));
+                if (statusEl) statusEl.textContent = "Failed.";
+              } finally {
+                if (saveBtn) saveBtn.disabled = false;
+                if (cancelBtn) cancelBtn.disabled = false;
+                if (nameInput) nameInput.disabled = false;
+                if (traitInput) traitInput.disabled = false;
+                setTimeout(()=>{ if (statusEl) statusEl.textContent = ""; }, 1500);
+              }
+            });
+          });
+
+          // Cancel edits
+          document.querySelectorAll(".cancel-meta-button").forEach(btn => {
+            btn.addEventListener("click", async () => {
+              const tokenId = btn.dataset.id;
+              const panel = document.getElementById(`edit-panel-${tokenId}`);
+              // Reset inputs to current on-chain values
+              try {
+                const current = await metadataRead.getMetadata(tokenId);
+                const currentName = current[0] || "";
+                const currentTrait = current[1] || "";
+                const nameInput = document.getElementById(`name-input-${tokenId}`);
+                const traitInput = document.getElementById(`trait-input-${tokenId}`);
+                if (nameInput) nameInput.value = currentName;
+                if (traitInput) traitInput.value = currentTrait;
+              } catch (e) {}
+              if (panel) panel.style.display = "none";
+            });
+          });
+
+          document.querySelectorAll(".claim-boostShare-btn").forEach(btn => {
+            btn.addEventListener("click", async () => {
+              const tokenId = btn.id.split("-")[3]; 
+              updatePendingBoostBonus(tokenId);
+              try {
+                const tx = await window.creatorBoostContract.claimBoostShare(tokenId);
+                alert(`Claim boost share transaction sent! Tx: ${tx.hash}`);
+                await tx.wait();
+                alert("Pending boost share successfully claimed!");
+
+                // update pendingBoostShare & Public Bonus Pool
+                await updatePendingBoostBonus(tokenId);
+                await loadRewardPool();
+              } catch (err) {
+                console.error(`Failed to claim boost tips for token #${tokenId}:`, err);
+                alert("Failed to claim boost tips: " + err.message);
+              }
+            });
+          });
+        }
+
+        document.querySelectorAll(".claim-bonus-btn").forEach(btn => {
+        btn.addEventListener("click", async () => {
+          const tokenId = btn.id.split("-")[3];
+
+          try {
+            // balance before claim
+            const before = await provider.getBalance(window.userAddress);
+
+            const tx = await window.creatorBoostContract.claimBonus(tokenId);
+            alert(`Claim Bonus transaction sent! Tx: ${tx.hash}`);
+            const receipt = await tx.wait();
+
+            // the balance after claim
+            const after = await provider.getBalance(window.userAddress);
+
+            // calculate ETH = after - before
+            let bonusReceived = after.sub(before);
+            bonusReceived = ethers.utils.formatEther(bonusReceived);
+
+            alert(`🎉 Bonus claimed!\nYou received: ${bonusReceived} ETH`);
+
+            await loadRewardPool();
+            await updatePendingBoostBonus(tokenId);
+
+          } catch (err) {
+            console.error(`Failed to claim bonus for token #${tokenId}:`, err);
+            alert("Failed to claim bonus: " + err.message);
+          }
+        });
+      });
+
+        /*******************************************
+         * LIST FOR SALE  (Phase 3, Step 1)
+         *******************************************/
+        document.querySelectorAll(".list-btn").forEach(btn => {
+          btn.addEventListener("click", async () => {
+            const tokenId = btn.dataset.id;
+
+            if (!window.marketContract) {
+              alert("Marketplace contract not loaded yet.");
+              return;
+            }
+
+            const priceEth = prompt("Enter listing price in ETH:");
+            if (!priceEth) return;
+
+            try {
+              // Convert ETH → wei
+              const priceWei = ethers.utils.parseEther(priceEth);
+
+              // Must approve marketplace before listing
+              const approveTx = await window.contract.approve(window.marketAddress, tokenId);
+              await approveTx.wait();
+
+              // List on marketplace
+              const tx = await window.marketContract.listItem(window.contract.address, tokenId, priceWei);
+              await tx.wait();
+
+              alert(`Fish #${tokenId} listed for ${priceEth} ETH!`);
+              await new Promise(res => setTimeout(res, 600));  
+              loadMyFish()
+            } catch (err) {
+              console.error(err);
+              alert("Listing failed: " + err.message);
+            }
+          });
+        });
+
+      } catch (e) {
+        console.error(e);
+        fishList.innerHTML = "<p>Error loading fish.</p>";
+      }
+
+    }
+
+    // Wait until wallet & contract are ready
+    const waitForWallet = setInterval(() => {
+      if (window.contract && window.userAddress) {
+        clearInterval(waitForWallet);
+        loadMyFish();
+        loadRewardPool(); 
+      }
+    }, 500);
+
+    async function updatePendingBoostBonus(tokenId) {
+      try {
+        if (!window.creatorBoostContract) return;
+
+        const data = await window.creatorBoostContract.fishes(tokenId);
+        const pending = ethers.utils.formatEther(data.pendingBoostShare.toString());
+
+        const el = document.getElementById(`pending-boostShare-${tokenId}`);
+        if (el) el.innerText = pending;
+
+        //update boost btn status
+        const bonusPool = await window.creatorBoostContract.bonusPool();
+        const boostBtn = document.getElementById(`claim-boostShare-btn-${tokenId}`);
+        if (boostBtn) {
+          boostBtn.disabled = Number(pending) <= 0;
+          boostBtn.title = Number(pending) <= 0 ? "No boot tips to claim" : "Claim pending boost tips";
+        }
+
+        //update bonus btn status
+        const boostsPerBonus = 3; 
+        const claimableBonusCount = Math.floor(data.boostCount.toNumber() / boostsPerBonus);
+        const bonusBtn = document.getElementById(`claim-bonus-btn-${tokenId}`);
+        if (bonusBtn) {
+          bonusBtn.disabled = claimableBonusCount <= 0 || bonusPool.lte(0);
+          bonusBtn.title = claimableBonusCount <= 0 || bonusPool.lte(0) ? "Bonus not available" : `Claimable bonus x${claimableBonusCount}`;
+        }
+
+      } catch (err) {
+        console.error(`Failed to update pending boost tips for ${tokenId}:`, err);
+      }
+    }  
+  </script>
+</body>
+</html>

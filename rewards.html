@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FinVerse - Claim Rewards</title>
+  
+  <!-- ethers.js v5 to match your other pages -->
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+  
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="src/css/nav.css">
+  <link rel="stylesheet" href="src/css/rewards.css">
+  <link rel="stylesheet" href="src/css/style.css">
+</head>
+<body>
+
+  <!-- Dynamic navbar -->
+  <div id="navbar-container"></div>
+
+  <div class="rewards-container">
+    <header class="rewards-header">
+      <h1>🎁 Claim Your Rewards</h1>
+      <p>Earn rewards for each Fish NFT you own!</p>
+      <div id="walletAddress" class="wallet-display">Connecting...</div>
+    </header>
+
+    <!-- Statistics Section -->
+    <section class="stats-section">
+      <div class="stat-card">
+        <div class="stat-icon">💰</div>
+        <div class="stat-info">
+          <span class="stat-label">Reward Per NFT</span>
+          <span class="stat-value" id="rewardPerNFT">Loading...</span>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon">🐠</div>
+        <div class="stat-info">
+          <span class="stat-label">Your Fish</span>
+          <span class="stat-value" id="ownedCount">0</span>
+        </div>
+      </div>
+
+      <div class="stat-card highlight">
+        <div class="stat-icon">✨</div>
+        <div class="stat-info">
+          <span class="stat-label">Claimable Rewards</span>
+          <span class="stat-value" id="claimableCount">0</span>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon">🏆</div>
+        <div class="stat-info">
+          <span class="stat-label">Total Claimed</span>
+          <span class="stat-value" id="userTotalClaimed">0 ETH</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Claim All Section -->
+    <section class="claim-all-section">
+      <button id="claimAllBtn" class="btn-primary btn-large">
+        Claim All Rewards
+      </button>
+      <button id="refreshBtn" class="btn-secondary">
+        🔄 Refresh
+      </button>
+    </section>
+
+    <!-- NFT Cards Section -->
+    <section class="nft-section">
+      <h2>Your Fish Collection</h2>
+      <div id="nftCardsContainer" class="nft-grid">
+        <!-- NFT cards will be loaded here -->
+      </div>
+    </section>
+
+    <!-- Contract Stats Section -->
+    <section class="contract-stats">
+      <h3>Contract Statistics</h3>
+      <div class="stats-grid">
+        <div class="stat-item">
+          <span class="stat-label">Contract Balance:</span>
+          <span id="contractBalance">Loading...</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Total Rewards Paid:</span>
+          <span id="totalPaid">Loading...</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Total Claims:</span>
+          <span id="totalClaims">Loading...</span>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Loading Overlay -->
+  <div id="loadingOverlay" class="loading-overlay">
+    <div class="spinner"></div>
+    <p>Processing transaction...</p>
+  </div>
+
+  <!-- Scripts -->
+  <script src="src/js/nav.js"></script>
+  <script src="src/js/rewards.js"></script>
+</body>
+</html>

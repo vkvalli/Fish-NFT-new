@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FinVerse Gallery</title>
+
+<link rel="stylesheet" href="src/css/nav.css">
+<link rel="stylesheet" href="src/css/gallery.css">
+</head>
+<body>
+
+<div id="navbar-container"></div>
+
+<div class="page-header">
+  <h1>FinVerse Gallery</h1>    
+  <div id="walletStatus">Connecting wallet...</div>
+  <div class="bonus-pool-info">
+    <div id="public-pool-balance">Public Bonus Pool: 0 ETH</div>
+  </div>
+</div>
+<div id="status"></div>
+<div id="sort-nav">
+  <a href="#" data-sort="score">Score ↓</a>
+  <a href="#" data-sort="vote" class="active">Votes ↓</a>
+  <a href="#" data-sort="createdAt">Created At ↓</a>
+</div>
+
+<div class="gallery" id="gallery">Loading all fish...</div>
+
+<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+<script src="src/js/gallery.js"></script>
+<script src="src/js/nav.js"></script>
+
+</body>
+</html>

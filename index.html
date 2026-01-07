@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FinVerse Tank</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+  <!-- <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script> -->
+  <link rel="stylesheet" href="src/css/nav.css">
+  <link rel="stylesheet" href="src/css/tank.css">
+</head>
+<body>
+
+  <div id="navbar-container"></div>
+  <div class="page-header">
+    <a href="draw.html" class="create-link">Create your own fish</a>
+    <span class="header-text">and watch it swim in FinVerse Tank!</span>
+  </div>
+
+  <canvas id="tank" width="800" height="400"></canvas>
+  <div class="tank-status">
+    <div id="walletAddress">Connecting wallet...</div>
+    <div id="contractInfo">Loading contract info...</div>
+  </div>
+
+  <script>
+    let provider, signer, contract, userAddress, contractAddress, contractABI;
+    const IPFS_GATEWAYS = [
+      "https://gateway.pinata.cloud/ipfs/",
+      "https://cloudflare-ipfs.com/ipfs/",
+      "https://ipfs.io/ipfs/"
+    ];
+
+    function ipfsToGateways(ipfsUri) {
+      if (!ipfsUri) return [];
+      let path = ipfsUri.replace(/^ipfs:\/\//, "").replace(/^ipfs\/?/, "");
+      return IPFS_GATEWAYS.map(g => g + path);
+    }
+
+    async function tryFetch(url, asJSON=false) {
+      try {
+        const res = await fetch(url, {mode:"cors"});
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        return asJSON ? await res.json() : await res.text();
+      } catch { return null; }
+    }
+
+    async function resolveTokenURI(uri) {
+      const candidates = uri.startsWith("ipfs://") ? ipfsToGateways(uri) : [uri];
+      for (const c of candidates) {
+        const json = await tryFetch(c,true).catch(()=>null);
+        if(json && typeof json === "object"){
+          const image = json.image || json.image_url || json.imageURI;
+          if(image){
+            if(image.startsWith("ipfs://")){
+              const gws = ipfsToGateways(image);
+              for(const gw of gws){
+                const ok = await tryFetch(gw,false);
+                if(ok!==null) return gw;
+              }
+            } else return image;
+          }
+        }
+      }
+      for(const c of candidates){
+        const ok = await tryFetch(c,false);
+        if(ok!==null) return c;
+      }
+      return null;
+    }
+
+    async function init() {
+      const addrJson = await fetch('contracts-address.json').then(r=>r.json());
+      contractAddress = addrJson.FishNFT;
+      document.getElementById("contractInfo").innerText = "Connected to contract: " + contractAddress;
+
+      contractABI = [
+        "function tokenCounter() public view returns (uint256)",
+        "function tokenURI(uint256 tokenId) public view returns (string memory)",
+        "function ownerOf(uint256 tokenId) public view returns (address)"
+      ];
+
+      if(!window.ethereum){
+        document.getElementById("walletAddress").innerText = "Please install MetaMask!";
+        return;
+      }
+
+      provider = new ethers.BrowserProvider(window.ethereum);
+
+      if (window.ethereum) {
+        window.ethereum.on("accountsChanged", async (accounts) => {
+          const walletDiv = document.getElementById("walletAddress");
+          if (accounts.length === 0) {
+            walletDiv.innerText = "Wallet disconnected";
+            userAddress = null;
+          } else {
+            userAddress = accounts[0];
+            walletDiv.innerText = "Connected Wallet: " + userAddress;
+          }
+        });
+      }
+
+      await provider.send("eth_requestAccounts", []);
+      signer = await provider.getSigner();
+      userAddress = await signer.getAddress();
+      document.getElementById("walletAddress").innerText = "Connected Wallet: " + userAddress;
+
+      contract = new ethers.Contract(contractAddress, contractABI, provider);
+      loadAllNFTs();
+    }
+
+    const canvas = document.getElementById('tank');
+    const ctx = canvas.getContext('2d');
+    let tankFishes = [];
+    let bubbles = [];
+    let grass = [];
+
+    async function loadAllNFTs(){
+      const totalBN = await contract.tokenCounter();
+      const total = Number(totalBN.toString ? totalBN.toString() : totalBN);
+      if (isNaN(total) || total <= 0) return;
+
+      let imageUrls = [];
+      let owners = [];
+      for(let i=0;i<total;i++){
+        try{
+          let tokenURI = await contract.tokenURI(i);
+          let imgUrl = null;
+          if(tokenURI.startsWith("data:application/json;base64,")){
+            const b64 = tokenURI.split(",")[1];
+            const meta = JSON.parse(atob(b64));
+            imgUrl = meta.image?.startsWith("ipfs://") ? ipfsToGateways(meta.image)[0] : meta.image;
+          } else {
+            imgUrl = await resolveTokenURI(tokenURI);
+          }
+          if(imgUrl) {
+            imageUrls.push(imgUrl);
+            const owner = await contract.ownerOf(i);
+            owners.push(owner.toLowerCase());
+          }
+        }catch(e){ console.warn("token",i,"error",e);}
+      }
+
+      initTankFish(imageUrls, owners);
+      initBubbles(50); 
+      initGrass(10);
+    }
+
+    function initTankFish(fishUrls, owners) {
+      tankFishes = fishUrls.map((url, i) => {
+        const img = new Image();
+        img.src = url;
+        const scale = 0.1 + Math.random() * 0.1;
+        return {
+          img,
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          speedX: (Math.random() - 0.5) * 2,
+          speedY: (Math.random() - 0.5) * 2,
+          scale,
+          owner: owners[i]
+        };
+      });
+      animateTank();
+    }
+
+    function initBubbles(count = 30) {
+      bubbles = Array.from({length: count}, () => ({
+        x: Math.random() * canvas.width,
+        y: canvas.height + Math.random() * 200,
+        radius: 2 + Math.random() * 4,
+        speedY: 0.5 + Math.random() * 1.5,
+        alpha: 0.5 + Math.random() * 0.5
+      }));
+    }
+
+    function drawBubbles() {
+      bubbles.forEach(b => {
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, b.radius, 0, 2 * Math.PI);
+        ctx.fillStyle = `rgba(255,255,255,${b.alpha})`;
+        ctx.fill();
+
+        b.y -= b.speedY;
+        if (b.y + b.radius < 0) {
+          b.y = canvas.height + b.radius;
+          b.x = Math.random() * canvas.width;
+          b.radius = 2 + Math.random() * 4;
+          b.speedY = 0.5 + Math.random() * 1.5;
+          b.alpha = 0.5 + Math.random() * 0.5;
+        }
+      });
+    }
+
+    function initGrass(count = 8) {
+      grass = Array.from({length: count}, () => ({
+        x: Math.random() * canvas.width,
+        height: 50 + Math.random() * 50,
+        width: 4 + Math.random() * 3,
+        sway: Math.random() * 0.05
+      }));
+    }
+
+    function drawGrass() {
+      grass.forEach(g => {
+        ctx.save();
+        ctx.beginPath();
+        const swayOffset = Math.sin(Date.now() * 0.002 + g.x) * 10;
+        ctx.moveTo(g.x + swayOffset, canvas.height);
+        ctx.lineTo(g.x + swayOffset, canvas.height - g.height);
+        ctx.lineWidth = g.width;
+        ctx.strokeStyle = "#0a5";
+        ctx.stroke();
+        ctx.restore();
+      });
+    }
+
+    canvas.addEventListener('mousemove', e => {
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+
+      tankFishes.forEach(fish => {
+        if (fish.owner === userAddress?.toLowerCase()) {
+          const w = fish.img.width * fish.scale;
+          const h = fish.img.height * fish.scale;
+          if (mx >= fish.x - w/2 && mx <= fish.x + w/2 &&
+              my >= fish.y - h/2 && my <= fish.y + h/2) {
+            ctx.save();
+            ctx.font = "16px sans-serif";
+            ctx.fillStyle = "#ff0";
+            ctx.textAlign = "center";
+            ctx.fillText("Your Fish", fish.x, fish.y - h/2 - 10);
+            ctx.restore();
+          }
+        }
+      });
+    });
+
+    function animateTank() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      drawBubbles();
+      drawGrass();
+
+      tankFishes.forEach(fish => {
+        fish.x += fish.speedX;
+        fish.y += fish.speedY;
+
+        if (fish.x < 0 || fish.x > canvas.width) fish.speedX *= -1;
+        if (fish.y < 0 || fish.y > canvas.height) fish.speedY *= -1;
+
+        const flip = fish.speedX >= 0 ? 1 : -1;
+
+        ctx.save();
+        ctx.translate(fish.x, fish.y);
+        ctx.scale(flip, 1);
+        const w = fish.img.width * fish.scale;
+        const h = fish.img.height * fish.scale;
+        ctx.drawImage(fish.img, -w/2, -h/2, w, h);
+
+        if (fish.owner === userAddress?.toLowerCase()) {
+          const time = Date.now() * 0.005;
+          const rays = 8;
+          for (let i = 0; i < rays; i++) {
+            const angle = (i / rays) * 2 * Math.PI + time;
+            const length = 20 + 5 * Math.sin(time + i);
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(Math.cos(angle) * length, Math.sin(angle) * length);
+            ctx.strokeStyle = `rgba(255, 255, 0, ${0.7 + 0.3*Math.sin(time)})`;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+          }
+        }
+
+        ctx.restore();
+      });
+
+      requestAnimationFrame(animateTank);
+    }
+
+    window.addEventListener("load", init);
+  </script>
+
+  <script src="src/js/nav.js"></script>
+</body>
+</html>

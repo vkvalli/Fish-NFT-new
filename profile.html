@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>My Minted Fish NFT</title>
+  <!-- preconnet to IPFS gateways  -->
+  <link rel="preconnect" href="https://cloudflare-ipfs.com">
+  <link rel="preconnect" href="https://gateway.pinata.cloud">
+  <link rel="preconnect" href="https://ipfs.io">
+  <link rel="preconnect" href="https://dweb.link">
+  <link rel="stylesheet" href="src/css/nav.css">
+  <link rel="stylesheet" href="src/css/profile.css">
+</head>
+<body>
+
+  <!-- Dynamic navbar -->
+  <div id="navbar-container"></div>
+
+  <div class="page-header">
+    <h1>My Minted Fish</h1>
+    <div id="walletStatus">Wallet not connected</div>
+  </div>
+
+  <!-- NFT container -->
+  <div id="nft-container">
+    <div id="loadingIndicator" class="loading">Loading your NFT...</div>
+  </div>
+
+  <!-- Make it Swim button -->
+  <button id="swimBtn" disabled>Make it Swim</button>
+
+  <!-- ethers.js v5 -->
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+
+  <!-- Wallet & NFT logic -->
+  <script src="src/js/nav.js"></script>
+  <script src="src/js/profile.js"></script>
+
+</body>
+</html>
